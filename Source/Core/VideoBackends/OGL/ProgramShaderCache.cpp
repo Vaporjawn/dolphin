@@ -33,11 +33,12 @@
 #include "VideoCommon/VertexLoaderManager.h"
 #include "VideoCommon/VertexShaderManager.h"
 #include "VideoCommon/VideoBackendBase.h"
+#include "VideoCommon/VideoConfig.h"
 
 namespace OGL
 {
 u32 ProgramShaderCache::s_ubo_buffer_size;
-s32 ProgramShaderCache::s_ubo_align;
+s32 ProgramShaderCache::s_ubo_align = 1;
 GLuint ProgramShaderCache::s_attributeless_VBO = 0;
 GLuint ProgramShaderCache::s_attributeless_VAO = 0;
 GLuint ProgramShaderCache::s_last_VAO = 0;

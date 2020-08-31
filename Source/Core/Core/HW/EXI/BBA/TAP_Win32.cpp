@@ -2,7 +2,7 @@
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
 
-#include "Core/HW/EXI/BBA-TAP/TAP_Win32.h"
+#include "Core/HW/EXI/BBA/TAP_Win32.h"
 #include "Common/Assert.h"
 #include "Common/Logging/Log.h"
 #include "Common/MsgHandler.h"
@@ -35,7 +35,7 @@ bool IsTAPDevice(const TCHAR* guid)
     TCHAR net_cfg_instance_id[256];
     DWORD data_type;
 
-    len = sizeof(enum_name);
+    len = _countof(enum_name);
     status = RegEnumKeyEx(netcard_key, i, enum_name, &len, nullptr, nullptr, nullptr, nullptr);
 
     if (status == ERROR_NO_MORE_ITEMS)
@@ -43,7 +43,8 @@ bool IsTAPDevice(const TCHAR* guid)
     else if (status != ERROR_SUCCESS)
       return false;
 
-    _sntprintf(unit_string, sizeof(unit_string), _T("%s\\%s"), ADAPTER_KEY, enum_name);
+    _sntprintf(unit_string, _countof(unit_string), _T("%s\\%s"), ADAPTER_KEY, enum_name);
+    unit_string[_countof(unit_string) - 1] = _T('\0');
 
     status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, unit_string, 0, KEY_READ, &unit_key);
 
@@ -110,14 +111,15 @@ bool GetGUIDs(std::vector<std::basic_string<TCHAR>>& guids)
     DWORD name_type;
     const TCHAR name_string[] = _T("Name");
 
-    len = sizeof(enum_name);
+    len = _countof(enum_name);
     status = RegEnumKeyEx(control_net_key, i, enum_name, &len, nullptr, nullptr, nullptr, nullptr);
 
     if (status != ERROR_SUCCESS)
       continue;
 
-    _sntprintf(connection_string, sizeof(connection_string), _T("%s\\%s\\Connection"),
+    _sntprintf(connection_string, _countof(connection_string), _T("%s\\%s\\Connection"),
                NETWORK_CONNECTIONS_KEY, enum_name);
+    connection_string[_countof(connection_string) - 1] = _T('\0');
 
     status = RegOpenKeyEx(HKEY_LOCAL_MACHINE, connection_string, 0, KEY_READ, &connection_key);
 
@@ -167,7 +169,7 @@ bool OpenTAP(HANDLE& adapter, const std::basic_string<TCHAR>& device_guid)
 
 namespace ExpansionInterface
 {
-bool CEXIETHERNET::Activate()
+bool CEXIETHERNET::TAPNetworkInterface::Activate()
 {
   if (IsActivated())
     return true;
@@ -196,7 +198,7 @@ bool CEXIETHERNET::Activate()
   }
 
   /* get driver version info */
-  ULONG info[3];
+  ULONG info[3]{};
   if (DeviceIoControl(mHAdapter, TAP_IOCTL_GET_VERSION, &info, sizeof(info), &info, sizeof(info),
                       &len, nullptr))
   {
@@ -233,7 +235,7 @@ bool CEXIETHERNET::Activate()
   return RecvInit();
 }
 
-void CEXIETHERNET::Deactivate()
+void CEXIETHERNET::TAPNetworkInterface::Deactivate()
 {
   if (!IsActivated())
     return;
@@ -258,19 +260,19 @@ void CEXIETHERNET::Deactivate()
   memset(&mWriteOverlapped, 0, sizeof(mWriteOverlapped));
 }
 
-bool CEXIETHERNET::IsActivated()
+bool CEXIETHERNET::TAPNetworkInterface::IsActivated()
 {
   return mHAdapter != INVALID_HANDLE_VALUE;
 }
 
-void CEXIETHERNET::ReadThreadHandler(CEXIETHERNET* self)
+void CEXIETHERNET::TAPNetworkInterface::ReadThreadHandler(TAPNetworkInterface* self)
 {
   while (!self->readThreadShutdown.IsSet())
   {
     DWORD transferred;
 
     // Read from TAP into internal buffer.
-    if (ReadFile(self->mHAdapter, self->mRecvBuffer.get(), BBA_RECV_SIZE, &transferred,
+    if (ReadFile(self->mHAdapter, self->m_eth_ref->mRecvBuffer.get(), BBA_RECV_SIZE, &transferred,
                  &self->mReadOverlapped))
     {
       // Returning immediately is not likely to happen, but if so, reset the event state manually.
@@ -300,16 +302,16 @@ void CEXIETHERNET::ReadThreadHandler(CEXIETHERNET* self)
 
     // Copy to BBA buffer, and fire interrupt if enabled.
     DEBUG_LOG(SP1, "Received %u bytes:\n %s", transferred,
-              ArrayToString(self->mRecvBuffer.get(), transferred, 0x10).c_str());
+              ArrayToString(self->m_eth_ref->mRecvBuffer.get(), transferred, 0x10).c_str());
     if (self->readEnabled.IsSet())
     {
-      self->mRecvBufferLength = transferred;
-      self->RecvHandlePacket();
+      self->m_eth_ref->mRecvBufferLength = transferred;
+      self->m_eth_ref->RecvHandlePacket();
     }
   }
 }
 
-bool CEXIETHERNET::SendFrame(const u8* frame, u32 size)
+bool CEXIETHERNET::TAPNetworkInterface::SendFrame(const u8* frame, u32 size)
 {
   DEBUG_LOG(SP1, "SendFrame %u bytes:\n%s", size, ArrayToString(frame, size, 0x10).c_str());
 
@@ -345,22 +347,22 @@ bool CEXIETHERNET::SendFrame(const u8* frame, u32 size)
   }
 
   // Always report the packet as being sent successfully, even though it might be a lie
-  SendComplete();
+  m_eth_ref->SendComplete();
   return true;
 }
 
-bool CEXIETHERNET::RecvInit()
+bool CEXIETHERNET::TAPNetworkInterface::RecvInit()
 {
   readThread = std::thread(ReadThreadHandler, this);
   return true;
 }
 
-void CEXIETHERNET::RecvStart()
+void CEXIETHERNET::TAPNetworkInterface::RecvStart()
 {
   readEnabled.Set();
 }
 
-void CEXIETHERNET::RecvStop()
+void CEXIETHERNET::TAPNetworkInterface::RecvStop()
 {
   readEnabled.Clear();
 }

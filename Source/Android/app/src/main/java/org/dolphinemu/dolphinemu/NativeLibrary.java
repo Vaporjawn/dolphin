@@ -6,6 +6,7 @@
 
 package org.dolphinemu.dolphinemu;
 
+import android.util.DisplayMetrics;
 import android.view.Surface;
 
 import androidx.appcompat.app.AlertDialog;
@@ -15,6 +16,7 @@ import org.dolphinemu.dolphinemu.utils.Log;
 import org.dolphinemu.dolphinemu.utils.Rumble;
 
 import java.lang.ref.WeakReference;
+import java.util.LinkedHashMap;
 
 /**
  * Class which contains methods that interact
@@ -138,7 +140,7 @@ public final class NativeLibrary
     public static final int CLASSIC_STICK_LEFT_RIGHT = 317;
     public static final int CLASSIC_STICK_RIGHT = 318;
     public static final int CLASSIC_STICK_RIGHT_UP = 319;
-    public static final int CLASSIC_STICK_RIGHT_DOWN = 100;
+    public static final int CLASSIC_STICK_RIGHT_DOWN = 320;
     public static final int CLASSIC_STICK_RIGHT_LEFT = 321;
     public static final int CLASSIC_STICK_RIGHT_RIGHT = 322;
     public static final int CLASSIC_TRIGGER_L = 323;
@@ -269,6 +271,9 @@ public final class NativeLibrary
   public static native void SetMotionSensorsEnabled(boolean accelerometerEnabled,
           boolean gyroscopeEnabled);
 
+  // Angle is in radians and should be non-negative
+  public static native double GetInputRadiusAtAngle(int emu_pad_id, int stick, double angle);
+
   public static native void NewGameIniFile();
 
   public static native void LoadGameIniFile(String gameId);
@@ -363,7 +368,11 @@ public final class NativeLibrary
    */
   public static native String GetUserDirectory();
 
+  public static native void SetCacheDirectory(String directory);
+
   public static native int DefaultCPUCore();
+
+  public static native int GetMaxLogLevel();
 
   public static native void ReloadConfig();
 
@@ -447,7 +456,13 @@ public final class NativeLibrary
 
   public static native void ReloadWiimoteConfig();
 
+  public static native LinkedHashMap<String, String> GetLogTypeNames();
+
+  public static native void ReloadLoggerConfig();
+
   public static native boolean InstallWAD(String file);
+
+  public static native String FormatSize(long bytes, int decimals);
 
   private static boolean alertResult = false;
 
@@ -520,7 +535,7 @@ public final class NativeLibrary
         {
           lock.wait();
         }
-        catch (Exception e)
+        catch (Exception ignored)
         {
         }
       }
@@ -555,6 +570,13 @@ public final class NativeLibrary
     {
       emulationActivity.runOnUiThread(emulationActivity::initInputPointer);
     }
+  }
+
+  public static float getRenderSurfaceScale()
+  {
+    DisplayMetrics metrics = new DisplayMetrics();
+    sEmulationActivity.get().getWindowManager().getDefaultDisplay().getMetrics(metrics);
+    return metrics.scaledDensity;
   }
 
   public static native float GetGameAspectRatio();

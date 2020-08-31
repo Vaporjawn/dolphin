@@ -102,6 +102,8 @@ struct VideoConfig final
 
   // Utility
   bool bDumpTextures;
+  bool bDumpMipmapTextures;
+  bool bDumpBaseTextures;
   bool bHiresTextures;
   bool bCacheHiresTextures;
   bool bDumpEFBTarget;
@@ -229,6 +231,7 @@ struct VideoConfig final
     bool bSupportsBackgroundCompiling;
     bool bSupportsLargePoints;
     bool bSupportsPartialDepthCopies;
+    bool bSupportsDepthReadback;
     bool bSupportsShaderBinaries;
     bool bSupportsPipelineCacheData;
   } backend_info;
